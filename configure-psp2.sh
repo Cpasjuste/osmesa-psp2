@@ -28,4 +28,3 @@ CXXFLAGS="$CFLAGS -fpermissive" \
 	--enable-shader-cache \
 	--enable-gallium-llvm=no
 
-rm configure.psp2

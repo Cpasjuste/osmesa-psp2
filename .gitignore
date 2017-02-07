@@ -1,7 +1,10 @@
 Makefile
+Makefile.in
+configure.psp2
 config.log
 config.status
 libtool
+autom4te.cache
 .deps
 .libs
 *.pc
@@ -23,3 +26,4 @@ src/mesa/program/program_parse.tab.c
 src/mesa/program/program_parse.tab.h
 src/compiler/glsl_compiler
 src/compiler/spirv2nir
+
