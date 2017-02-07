@@ -33,7 +33,9 @@
 
 #include "spirv/nir_spirv.h"
 
+#ifndef __PSP2__
 #include <sys/mman.h>
+#endif
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -63,7 +65,12 @@ int main(int argc, char **argv)
 
    size_t word_count = len / WORD_SIZE;
 
+#ifdef __PSP2__
+#define MAP_FAILED 0
+   const void *map = MAP_FAILED;
+#else
    const void *map = mmap(NULL, len, PROT_READ, MAP_PRIVATE, fd, 0);
+#endif   
    if (map == MAP_FAILED)
    {
       fprintf(stderr, "Failed to mmap the file: errno=%d, %s\n",

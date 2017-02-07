@@ -12376,6 +12376,9 @@ KEYWORD1_ALT void KEYWORD2 NAME(_dispatch_stub_1327)(GLenum target, GLenum pname
    DISPATCH(TexParameterxv, (target, pname, params), (F, "glTexParameterxvOES(0x%x, 0x%x, %p);\n", target, pname, (const void *) params));
 }
 
+#ifdef __PSP2__
+KEYWORD1 void KEYWORD2 NAME(BlendBarrier)(void);
+#endif
 KEYWORD1 void KEYWORD2 NAME(BlendBarrier)(void)
 {
    DISPATCH(BlendBarrier, (), (F, "glBlendBarrier();\n"));
@@ -12388,6 +12391,9 @@ KEYWORD1_ALT void KEYWORD2 NAME(_dispatch_stub_1328)(void)
    DISPATCH(BlendBarrier, (), (F, "glBlendBarrierKHR();\n"));
 }
 
+#ifdef __PSP2__
+KEYWORD1 void KEYWORD2 NAME(PrimitiveBoundingBox)(GLfloat minX, GLfloat minY, GLfloat minZ, GLfloat minW, GLfloat maxX, GLfloat maxY, GLfloat maxZ, GLfloat maxW);
+#endif
 KEYWORD1 void KEYWORD2 NAME(PrimitiveBoundingBox)(GLfloat minX, GLfloat minY, GLfloat minZ, GLfloat minW, GLfloat maxX, GLfloat maxY, GLfloat maxZ, GLfloat maxW)
 {
     (void) minX; (void) minY; (void) minZ; (void) minW; (void) maxX; (void) maxY; (void) maxZ; (void) maxW;

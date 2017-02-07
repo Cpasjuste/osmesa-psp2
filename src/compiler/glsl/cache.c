@@ -28,12 +28,190 @@
 #include <sys/file.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#ifndef __PSP2__
 #include <sys/mman.h>
+#endif
 #include <unistd.h>
 #include <fcntl.h>
 #include <pwd.h>
 #include <errno.h>
+#ifdef __PSP2__
+#include <psp2/kernel/threadmgr.h>
+#include <psp2/io/dirent.h>
+#define SCE_ERRNO_MASK 0xFF
+#define O_CLOEXEC 0
+#define MAP_FAILED 0
+int nanosleep(const struct timespec *req, struct timespec *rem);
+int nanosleep(const struct timespec *req, struct timespec *rem)
+{
+	sceKernelDelayThread((1000000 * req->tv_sec) + (1000 * req->tv_nsec));
+	return 0;
+}
+struct dirent
+{
+	/** File status. */
+	SceIoStat	d_stat;
+	/** File name. */
+	char	d_name[256];
+	/** Device-specific data. */
+	void	*d_private;
+	int	dummy;
+};
+struct DIR_;
+typedef struct DIR_ DIR;
+struct DIR_
+{
+	SceUID uid;
+	struct dirent dir;
+	int refcount;
+	char *dirname;
+	int index;
+};
+int	closedir(DIR *dirp);
+DIR *opendir(const char *dirname);
+struct dirent *readdir(DIR *dirp);
+void rewinddir(DIR *dirp);
+
+int mkdir(const char *path, mode_t mode)
+{
+	return sceIoMkdir(path, 0777);
+}
+static inline void grab_dir(DIR *dirp)
+{
+	__sync_add_and_fetch(&dirp->refcount, 1);
+}
+static inline void drop_dir(DIR *dirp)
+{
+	if (__sync_add_and_fetch(&dirp->refcount, 1) == 0)
+	{
+		free(dirp->dirname);
+		free(dirp);
+	}
+}
+static inline void release_drop_dir(DIR *dirp)
+{
+	if (__sync_add_and_fetch(&dirp->refcount, 2) == 0)
+	{
+		free(dirp->dirname);
+		free(dirp);
+	}
+}
+static inline void atomic_exchange(int *obj, int desired)
+{
+	__sync_synchronize();
+	__sync_lock_test_and_set(obj, desired);
+}
+int	closedir(DIR *dirp)
+{
+	if (!dirp)
+	{
+		errno = EBADF;
+		return -1;
+	}
+
+	grab_dir(dirp);
+
+	int res = sceIoDclose(dirp->uid);
+
+	if (res < 0)
+	{
+		errno = res & SCE_ERRNO_MASK;
+		drop_dir(dirp);
+		return -1;
+	}
+
+	release_drop_dir(dirp);
+
+	errno = 0;
+	return 0;
+}
+DIR *opendir(const char *dirname)
+{
+	SceUID uid = sceIoDopen(dirname);
+
+	if (uid < 0)
+	{
+		errno = uid & SCE_ERRNO_MASK;
+		return NULL;
+	}
+
+	DIR *dirp = (DIR *)calloc(1, sizeof(DIR));
+
+	if (!dirp)
+	{
+		sceIoDclose(uid);
+		errno = ENOMEM;
+		return NULL;
+	}
+
+	dirp->refcount = 1;
+	dirp->uid = uid;
+	dirp->dirname = strdup(dirname);
+	dirp->index = 0;
+
+	errno = 0;
+	return dirp;
+}
+struct dirent *readdir(DIR *dirp)
+{
+	if (!dirp)
+	{
+		errno = EBADF;
+		return NULL;
+	}
+
+	grab_dir(dirp);
+
+	int res = sceIoDread(dirp->uid, (SceIoDirent *)&dirp->dir);
+
+	if (res < 0)
+	{
+		errno = res & SCE_ERRNO_MASK;
+		drop_dir(dirp);
+		return NULL;
+	}
+
+	if (res == 0)
+	{
+		errno = 0;
+		drop_dir(dirp);
+		return NULL;
+	}
+
+	__sync_add_and_fetch(&dirp->index, 1);
+
+	struct dirent *dir = &dirp->dir;
+	drop_dir(dirp);
+	return dir;
+}
+void rewinddir(DIR *dirp)
+{
+	if (!dirp)
+	{
+		errno = EBADF;
+		return;
+	}
+
+	grab_dir(dirp);
+
+	SceUID dirfd = sceIoDopen(dirp->dirname);
+
+	if (dirfd < 0)
+	{
+		errno = dirfd & SCE_ERRNO_MASK;
+		drop_dir(dirp);
+		return;
+	}
+
+	sceIoDclose(dirp->uid);
+	atomic_exchange(&dirp->uid, dirfd);
+	atomic_exchange(&dirp->index, 0);
+
+	drop_dir(dirp);
+}
+#else
 #include <dirent.h>
+#endif
 
 #include "util/u_atomic.h"
 #include "util/mesa-sha1.h"
@@ -251,8 +429,13 @@ cache_create(void)
     * guarantees of the cryptographic hash, a corrupt entry is
     * unlikely to ever match a real cache key).
     */
+#ifdef __PSP2__
+   printf("TODO: mmap\n");
+   cache->index_mmap = MAP_FAILED; // TODO
+#else
    cache->index_mmap = mmap(NULL, size, PROT_READ | PROT_WRITE,
                             MAP_SHARED, fd, 0);
+#endif
    if (cache->index_mmap == MAP_FAILED)
       goto fail;
    cache->index_mmap_size = size;
@@ -315,7 +498,12 @@ cache_create(void)
 void
 cache_destroy(struct program_cache *cache)
 {
+#ifdef __PSP2__
+	// TODO
+   printf("TODO: munmap\n");
+#else
    munmap(cache->index_mmap, cache->index_mmap_size);
+#endif
 
    ralloc_free(cache);
 }
@@ -431,8 +619,13 @@ is_regular_non_tmp_file(struct dirent *entry)
 {
    size_t len;
 
+#ifdef __PSP2__
+   if (!SCE_S_ISREG(entry->d_stat.st_mode))
+      return false;
+#else
    if (entry->d_type != DT_REG)
       return false;
+#endif
 
    len = strlen (entry->d_name);
    if (len >= 4 && strcmp(&entry->d_name[len-4], ".tmp") == 0)
@@ -470,9 +663,13 @@ unlink_random_file_from_directory(const char *path)
 static bool
 is_two_character_sub_directory(struct dirent *entry)
 {
+#ifdef __PSP2__
+   if (!SCE_S_ISDIR(entry->d_stat.st_mode))
+      return false;
+#else	
    if (entry->d_type != DT_DIR)
       return false;
-
+#endif
    if (strlen(entry->d_name) != 2)
       return false;
 

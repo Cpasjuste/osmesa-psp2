@@ -463,7 +463,11 @@ lower_ubo_reference_visitor::ssbo_store(void *mem_ctx,
    call_params.push_tail(offset->clone(mem_ctx, NULL));
    call_params.push_tail(deref->clone(mem_ctx, NULL));
    call_params.push_tail(new(mem_ctx) ir_constant(write_mask));
+#ifdef __PSP2__
+   call_params.push_tail(new(mem_ctx) ir_constant((unsigned int)ssbo_access_params()));
+#else
    call_params.push_tail(new(mem_ctx) ir_constant(ssbo_access_params()));
+#endif
    return new(mem_ctx) ir_call(sig, NULL, &call_params);
 }
 
@@ -504,7 +508,11 @@ lower_ubo_reference_visitor::ssbo_load(void *mem_ctx,
    exec_list call_params;
    call_params.push_tail(this->uniform_block->clone(mem_ctx, NULL));
    call_params.push_tail(offset->clone(mem_ctx, NULL));
+#ifdef __PSP2__
+   call_params.push_tail(new(mem_ctx) ir_constant((unsigned int)ssbo_access_params()));
+#else
    call_params.push_tail(new(mem_ctx) ir_constant(ssbo_access_params()));
+#endif
 
    return new(mem_ctx) ir_call(sig, deref_result, &call_params);
 }

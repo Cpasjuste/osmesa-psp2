@@ -36,6 +36,16 @@
 #include <sched.h>
 #include <stdint.h> /* for intptr_t */
 
+#ifdef __PSP2__
+#ifdef __cplusplus
+extern "C" {
+#endif
+int nanosleep(const struct timespec *req, struct timespec *rem);
+#ifdef __cplusplus
+}
+#endif
+#endif
+
 /*
 Configuration macro:
 

@@ -43,6 +43,10 @@
 
 #  include <stdlib.h>
 
+#ifdef __PSP2__
+#define alloca malloc
+#endif
+
 #endif /* !defined(_MSC_VER) */
 
 
