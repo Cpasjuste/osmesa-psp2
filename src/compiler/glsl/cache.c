@@ -312,6 +312,7 @@ concatenate_and_mkdir(void *ctx, char *path, char *name)
 struct program_cache *
 cache_create(void)
 {
+#ifndef __PSP2__
    void *local;
    struct program_cache *cache = NULL;
    char *path, *max_size_str;
@@ -429,13 +430,8 @@ cache_create(void)
     * guarantees of the cryptographic hash, a corrupt entry is
     * unlikely to ever match a real cache key).
     */
-#ifdef __PSP2__
-   printf("TODO: mmap\n");
-   cache->index_mmap = MAP_FAILED; // TODO
-#else
    cache->index_mmap = mmap(NULL, size, PROT_READ | PROT_WRITE,
                             MAP_SHARED, fd, 0);
-#endif
    if (cache->index_mmap == MAP_FAILED)
       goto fail;
    cache->index_mmap_size = size;
@@ -491,21 +487,17 @@ cache_create(void)
    if (cache)
       ralloc_free(cache);
    ralloc_free(local);
-
+#endif
    return NULL;
 }
 
 void
 cache_destroy(struct program_cache *cache)
 {
-#ifdef __PSP2__
-	// TODO
-   printf("TODO: munmap\n");
-#else
+#ifndef __PSP2__
    munmap(cache->index_mmap, cache->index_mmap_size);
-#endif
-
    ralloc_free(cache);
+#endif
 }
 
 /* Return a filename within the cache's directory corresponding to 'key'. The
@@ -733,6 +725,7 @@ cache_put(struct program_cache *cache,
           const void *data,
           size_t size)
 {
+#ifndef __PSP2__
    int fd = -1, fd_final = -1, err, ret;
    size_t len;
    char *filename = NULL, *filename_tmp = NULL;
@@ -821,6 +814,7 @@ cache_put(struct program_cache *cache,
       ralloc_free(filename_tmp);
    if (filename)
       ralloc_free(filename);
+#endif
 }
 
 void *

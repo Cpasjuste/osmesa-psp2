@@ -25,6 +25,6 @@ CXXFLAGS="$CFLAGS -fpermissive" \
 	--enable-osmesa \
 	--disable-gallium-osmesa \
 	--with-gallium-drivers="" \
-	--enable-shader-cache \
+	--disable-shader-cache \
 	--enable-gallium-llvm=no
 
